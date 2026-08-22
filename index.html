@@ -104,7 +104,7 @@
     background: linear-gradient(#ff4d4d, #a30000);
   }
 
-  #overlay {
+  #overlay, #startOverlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -119,14 +119,19 @@
     text-align: center;
   }
 
-  #overlay h2 {
+  #overlay h2, #startOverlay h2 {
     font-size: 32px;
     color: #ff4d4d;
     margin-bottom: 10px;
     text-shadow: 0 0 10px #ff4d4d;
   }
 
-  #overlay p {
+  #startOverlay h2 {
+    color: #00e5ff;
+    text-shadow: 0 0 10px #00e5ff;
+  }
+
+  #overlay p, #startOverlay p {
     margin-bottom: 20px;
     font-size: 18px;
   }
@@ -155,9 +160,6 @@
     text-align: center;
   }
 
-  #startOverlay {
-    display: flex;
-  }
 </style>
 </head>
 <body>
@@ -178,7 +180,7 @@
 
   <div class="car" id="player"></div>
 
-  <div id="startOverlay">
+  <div id="startOverlay" style="display: flex;">
     <h2>Ready to race?</h2>
     <p>Use ← → or A / D to switch lanes.<br>Avoid the red cars!</p>
     <button id="startBtn">Start Game</button>
