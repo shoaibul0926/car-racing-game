@@ -34,6 +34,23 @@
 
   #hud span { color: #00e5ff; font-weight: bold; }
 
+  #muteBtn {
+    position: fixed;
+    top: 10px;
+    right: 14px;
+    z-index: 50;
+    background: rgba(0,20,30,0.6);
+    border: 1px solid #00e5ff88;
+    color: #9fd;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+  }
+
   /* ---------- Scenery frame ---------- */
 
   #trackFrame {
@@ -299,6 +316,8 @@
 </head>
 <body>
 
+<button id="muteBtn" title="Toggle sound">🔊</button>
+
 <h1>🏎️ Car Racing Game</h1>
 
 <div id="hud">
@@ -393,6 +412,48 @@
   const timeRow = document.getElementById('timeRow');
   const timeDisplay = document.getElementById('timeDisplay');
   const finalScoreEl = document.getElementById('finalScore');
+  const muteBtn = document.getElementById('muteBtn');
+
+  // ---------- audio ----------
+  let audioCtx = null;
+  let muted = localStorage.getItem('carGameMuted') === '1';
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+
+  function ensureAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function beep(freq, duration, type, gainVal, glideTo, delay) {
+    if (muted) return;
+    try {
+      ensureAudio();
+      const t0 = audioCtx.currentTime + (delay || 0);
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, t0);
+      if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0 + duration);
+      gain.gain.setValueAtTime(gainVal || 0.12, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration);
+    } catch (e) { /* audio unavailable, ignore */ }
+  }
+
+  const sfxClick = () => beep(600, 0.08, 'square', 0.07, 900);
+  const sfxLane = () => beep(500, 0.05, 'sine', 0.05);
+  const sfxPass = () => beep(880, 0.06, 'sine', 0.06, 1200);
+  const sfxCrash = () => { beep(150, 0.32, 'sawtooth', 0.16, 30); beep(80, 0.4, 'square', 0.13, 20, 0.05); };
+  const sfxTimeUp = () => beep(440, 0.25, 'triangle', 0.12, 220);
+
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem('carGameMuted', muted ? '1' : '0');
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+  });
 
   // ---------- screens ----------
   const screens = {
@@ -505,6 +566,7 @@
 
   // ---------- screen navigation ----------
   nameContinueBtn.addEventListener('click', () => {
+    sfxClick();
     const typed = nameInput.value.trim();
     playerName = typed.length > 0 ? typed : 'Racer';
     localStorage.setItem('carGamePlayerName', playerName);
@@ -514,22 +576,23 @@
   nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') nameContinueBtn.click(); });
 
   editNameBtn.addEventListener('click', () => {
+    sfxClick();
     nameInput.value = playerName === 'Racer' ? '' : playerName;
     showScreen('name');
   });
-  newGameBtn.addEventListener('click', () => showScreen('modeSelect'));
-  leaderboardBtn.addEventListener('click', () => { renderLeaderboard(); showScreen('leaderboard'); });
-  howToBtn.addEventListener('click', () => showScreen('howTo'));
-  backToMenuBtn.addEventListener('click', () => showScreen('menu'));
-  lbBackBtn.addEventListener('click', () => showScreen('menu'));
-  howToBackBtn.addEventListener('click', () => showScreen('menu'));
+  newGameBtn.addEventListener('click', () => { sfxClick(); showScreen('modeSelect'); });
+  leaderboardBtn.addEventListener('click', () => { sfxClick(); renderLeaderboard(); showScreen('leaderboard'); });
+  howToBtn.addEventListener('click', () => { sfxClick(); showScreen('howTo'); });
+  backToMenuBtn.addEventListener('click', () => { sfxClick(); showScreen('menu'); });
+  lbBackBtn.addEventListener('click', () => { sfxClick(); showScreen('menu'); });
+  howToBackBtn.addEventListener('click', () => { sfxClick(); showScreen('menu'); });
 
-  modeCardSurvival.addEventListener('click', () => startGame('survival'));
-  modeCardTimeTrial.addEventListener('click', () => startGame('timeTrial'));
+  modeCardSurvival.addEventListener('click', () => { sfxClick(); startGame('survival'); });
+  modeCardTimeTrial.addEventListener('click', () => { sfxClick(); startGame('timeTrial'); });
 
-  playAgainBtn.addEventListener('click', () => startGame(selectedMode));
-  changeModeBtn.addEventListener('click', () => showScreen('modeSelect'));
-  mainMenuBtn.addEventListener('click', () => showScreen('menu'));
+  playAgainBtn.addEventListener('click', () => { sfxClick(); startGame(selectedMode); });
+  changeModeBtn.addEventListener('click', () => { sfxClick(); showScreen('modeSelect'); });
+  mainMenuBtn.addEventListener('click', () => { sfxClick(); showScreen('menu'); });
 
   // ---------- game logic ----------
   function resetGame() {
@@ -572,6 +635,7 @@
       bestEl.textContent = best;
     }
     saveScoreToLeaderboard(playerName, score, MODES[selectedMode].name);
+    if (reason === 'timeup') sfxTimeUp(); else sfxCrash();
     resultsTitle.textContent = reason === 'timeup' ? "⏱️ Time's Up!" : '💥 Crashed!';
     resultsMeta.textContent = `${playerName} · ${MODES[selectedMode].name}`;
     finalScoreEl.textContent = 'Score: ' + score;
@@ -633,6 +697,7 @@
         enemies.splice(i, 1);
         score++;
         scoreEl.textContent = score;
+        sfxPass();
       }
     }
 
@@ -661,6 +726,7 @@
     if (playerLane > 0) {
       playerLane--;
       updatePlayerPosition();
+      sfxLane();
     }
   }
 
@@ -669,6 +735,7 @@
     if (playerLane < 2) {
       playerLane++;
       updatePlayerPosition();
+      sfxLane();
     }
   }
 
