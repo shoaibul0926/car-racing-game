@@ -443,17 +443,38 @@
     } catch (e) { /* audio unavailable, ignore */ }
   }
 
-  const sfxClick = () => beep(600, 0.08, 'square', 0.07, 900);
-  const sfxLane = () => beep(500, 0.05, 'sine', 0.05);
-  const sfxPass = () => beep(880, 0.06, 'sine', 0.06, 1200);
-  const sfxCrash = () => { beep(150, 0.32, 'sawtooth', 0.16, 30); beep(80, 0.4, 'square', 0.13, 20, 0.05); };
-  const sfxTimeUp = () => beep(440, 0.25, 'triangle', 0.12, 220);
+  // Sonic identity: low, rhythmic, engine-like. Sawtooth/square in a low
+  // register — growls and mechanical thuds rather than clean bright blips.
+  const sfxClick = () => beep(95, 0.09, 'sawtooth', 0.09, 170);
+  const sfxLane = () => beep(140, 0.05, 'square', 0.06, 85);
+  const sfxPass = () => beep(220, 0.08, 'sawtooth', 0.07, 340);
+  const sfxCrash = () => { beep(140, 0.34, 'sawtooth', 0.17, 25); beep(70, 0.42, 'square', 0.14, 18, 0.05); };
+  const sfxTimeUp = () => beep(280, 0.3, 'sawtooth', 0.13, 140);
 
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     localStorage.setItem('carGameMuted', muted ? '1' : '0');
     muteBtn.textContent = muted ? '🔇' : '🔊';
   });
+
+  // ---------- background music: pulsing low engine-hum loop ----------
+  let musicTimer = null;
+  let musicStep = 0;
+  function playMusicStep() {
+    const strong = musicStep % 4 === 0;
+    beep(strong ? 58 : 52, strong ? 0.16 : 0.1, 'sawtooth', strong ? 0.045 : 0.028, strong ? 74 : 62);
+    if (musicStep % 2 === 1) beep(104, 0.05, 'square', 0.018, 96);
+    musicStep++;
+  }
+  function startMusic() {
+    if (musicTimer) return;
+    musicStep = 0;
+    playMusicStep();
+    musicTimer = setInterval(playMusicStep, 260);
+  }
+  function stopMusic() {
+    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  }
 
   // ---------- screens ----------
   const screens = {
@@ -628,6 +649,7 @@
 
   function endRun(reason) {
     running = false;
+    stopMusic();
     cancelAnimationFrame(animFrame);
     if (score > best) {
       best = score;
@@ -705,6 +727,7 @@
   }
 
   function startGame(modeKey) {
+    ensureAudio();
     selectedMode = modeKey;
     const mode = MODES[modeKey];
     resetGame();
@@ -718,6 +741,7 @@
     showScreen(null);
     running = true;
     paused = false;
+    startMusic();
     animFrame = requestAnimationFrame(loop);
   }
 
@@ -743,8 +767,10 @@
     if (!running) return;
     paused = !paused;
     if (!paused) {
+      startMusic();
       animFrame = requestAnimationFrame(loop);
     } else {
+      stopMusic();
       cancelAnimationFrame(animFrame);
     }
   }
